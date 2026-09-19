@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, Menu, Trophy, Coins, Footprints, Gauge, Sparkles, ListOrdered, Calendar } from 'lucide-react';
+import { RotateCcw, Menu, Sparkles, ListOrdered, Footprints, Coins, Gauge } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { DifficultyLevel, GameStats, HighScoreRecord, RankEvaluation, PlayHistoryRecord } from '../types';
 import { DIFFICULTY_CONFIGS } from '../data/difficulties';
@@ -31,8 +31,8 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
     if (isNewRecord || (evaluation && evaluation.isHighRank)) {
       try {
         confetti({
-          particleCount: 90,
-          spread: 80,
+          particleCount: 95,
+          spread: 85,
           origin: { y: 0.55 },
           colors: ['#ffd700', '#f59e0b', '#38bdf8', '#4ade80', '#ec4899'],
         });
@@ -45,10 +45,10 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   return (
     <div
       id="game-over-overlay"
-      className="absolute inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-20 overflow-y-auto"
+      className="absolute inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-20 overflow-y-auto"
     >
       <div className="w-full max-w-lg bg-white/95 text-slate-900 border border-amber-200/80 rounded-3xl p-5 sm:p-7 shadow-2xl flex flex-col gap-5 animate-in fade-in zoom-in-95 duration-200 my-auto">
-        {/* Dynamic Rank Praise / Teasing Banner */}
+        {/* Dynamic Rank Praise / Teasing Banner (Per Difficulty) */}
         {evaluation && (
           <div
             id="rank-evaluation-card"
@@ -60,7 +60,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           >
             <div className="text-3xl shrink-0 p-1">{evaluation.emoji}</div>
             <div className="flex flex-col gap-0.5">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <span
                   className={`px-2 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider ${
                     evaluation.isHighRank
@@ -68,13 +68,13 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
                       : 'bg-rose-200 text-rose-800'
                   }`}
                 >
-                  내 순위: {evaluation.rank}위 / {evaluation.totalPlays}회
+                  {config.name} 순위: {evaluation.rank}위 / {evaluation.totalPlays}회
                 </span>
                 <span className="font-bold text-sm sm:text-base text-slate-900">
                   {evaluation.title}
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed mt-1 font-medium">
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed mt-1.5 font-medium">
                 {evaluation.message}
               </p>
             </div>
@@ -88,13 +88,18 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             <div className="text-3xl sm:text-4xl font-black text-amber-600 font-mono tracking-tight">
               {stats.score.toLocaleString()}점
             </div>
-            <div className="text-xs text-slate-500 font-medium mt-0.5">
-              {config.name}
+            <div className="text-xs text-slate-500 font-bold mt-0.5 flex items-center gap-1.5">
+              <span className="px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded text-[10px]">
+                {config.name}
+              </span>
+              <span>{config.subName}</span>
             </div>
           </div>
 
           <div className="text-right">
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">역대 최고 점수</div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              {config.name} 최고 점수
+            </div>
             <div className="text-lg sm:text-xl font-black text-slate-700 font-mono">
               {Math.max(highScore.score, stats.score).toLocaleString()}점
             </div>
@@ -133,15 +138,15 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           </div>
         </div>
 
-        {/* Mini Leaderboard (Top 3 and recent ranking) */}
+        {/* Difficulty Specific Mini Leaderboard */}
         {history.length > 0 && (
           <div className="flex flex-col gap-2 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
             <div className="flex items-center justify-between font-bold text-slate-700 px-1">
               <span className="flex items-center gap-1.5">
                 <ListOrdered className="w-3.5 h-3.5 text-amber-500" />
-                <span>내 역대 랭킹 순위표 (TOP 4)</span>
+                <span>{config.name} 순위표 (TOP 4)</span>
               </span>
-              <span className="text-[11px] text-slate-400 font-normal">총 {history.length}회 플레이</span>
+              <span className="text-[11px] text-slate-400 font-normal">총 {history.length}회 도전</span>
             </div>
 
             <div className="flex flex-col gap-1">
@@ -152,7 +157,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
                     key={rec.id || idx}
                     className={`flex items-center justify-between p-2 rounded-lg transition-all ${
                       isCurrent
-                        ? 'bg-amber-100 border border-amber-300 font-bold text-slate-900 shadow-sm'
+                        ? 'bg-amber-100 border border-amber-300 font-bold text-slate-900 shadow-sm ring-1 ring-amber-400/50'
                         : 'bg-white border border-slate-200/70 text-slate-600'
                     }`}
                   >
@@ -178,8 +183,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                      <span>{rec.difficulty}단계</span>
+                    <div className="text-[10px] text-slate-400">
                       <span>{rec.date}</span>
                     </div>
                   </div>
@@ -198,7 +202,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             className="flex-1 py-3.5 px-5 rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-md shadow-amber-500/20 transition cursor-pointer"
           >
             <RotateCcw className="w-4 h-4" />
-            <span>다시 달리기</span>
+            <span>{config.name} 다시 달리기</span>
           </button>
 
           <button

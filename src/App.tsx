@@ -225,7 +225,7 @@ export default function App() {
           highScore={highScore}
           isNewRecord={isNewRecord}
           evaluation={latestEvaluation}
-          history={history}
+          history={history.filter((h) => h.difficulty === difficulty)}
           onRestart={handleRestart}
           onOpenMenu={handleOpenMenu}
         />

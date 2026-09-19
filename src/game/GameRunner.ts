@@ -60,14 +60,14 @@ export class GameRunner {
     this.container = container;
     this.callbacks = callbacks;
 
-    // 1. Scene & Camera (Bright sunny sky atmosphere)
+    // 1. Scene & Camera (Bright sunny sky atmosphere with expansive horizon)
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x7dd3fc); // Cheerful vibrant sky blue
-    this.scene.fog = new THREE.Fog(0xbae6fd, 50, 160); // Soft distant atmospheric haze
+    this.scene.background = new THREE.Color(0x60a5fa); // Vivid cheerful sky blue
+    this.scene.fog = new THREE.Fog(0x93c5fd, 140, 380); // Open fog distance so distant scenery is crystal clear
 
     const width = container.clientWidth || window.innerWidth;
     const height = container.clientHeight || window.innerHeight;
-    this.camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 200);
+    this.camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 450);
 
     // 2. Renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -290,13 +290,13 @@ export class GameRunner {
 
     this.camera.position.set(
       this.playerX * 0.35 + shakeX,
-      this.playerY * 0.25 + 4.2 + shakeY,
-      this.playerZ - 7.5
+      this.playerY * 0.25 + 4.8 + shakeY,
+      this.playerZ - 8.2
     );
     this.camera.lookAt(
-      this.playerX * 0.3,
-      this.playerY * 0.2 + 1.8,
-      this.playerZ + 12
+      this.playerX * 0.25,
+      this.playerY * 0.15 + 2.2,
+      this.playerZ + 18
     );
 
     // Move directional light with player

@@ -1,19 +1,29 @@
 import { PlayHistoryRecord, RankEvaluation, DifficultyLevel } from '../types';
 
-const STORAGE_KEY = 'gold_run_play_history_v2';
+const STORAGE_KEY_PREFIX = 'gold_run_play_history_diff_';
 
-export function getPlayHistory(): PlayHistoryRecord[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed;
+export function getPlayHistory(difficulty?: DifficultyLevel): PlayHistoryRecord[] {
+  if (difficulty) {
+    try {
+      const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${difficulty}`);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (e) {
+      console.warn(`Failed to parse play history for difficulty ${difficulty}`, e);
     }
-  } catch (e) {
-    console.warn('Failed to parse play history', e);
+    return [];
   }
-  return [];
+
+  // If no difficulty specified, combine from all 3 difficulties sorted by score
+  const all: PlayHistoryRecord[] = [];
+  ([1, 2, 3] as DifficultyLevel[]).forEach((diff) => {
+    all.push(...getPlayHistory(diff));
+  });
+  all.sort((a, b) => b.score - a.score);
+  return all;
 }
 
 export function savePlayRecord(record: Omit<PlayHistoryRecord, 'id' | 'date' | 'timestamp'>): {
@@ -21,35 +31,36 @@ export function savePlayRecord(record: Omit<PlayHistoryRecord, 'id' | 'date' | '
   evaluation: RankEvaluation;
   recordWithRank: PlayHistoryRecord;
 } {
-  const history = getPlayHistory();
+  const diff = record.difficulty;
+  const history = getPlayHistory(diff);
   const now = new Date();
   const formattedDate = `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   const newRecord: PlayHistoryRecord = {
     ...record,
-    id: `run_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    id: `run_${diff}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     date: formattedDate,
     timestamp: Date.now(),
   };
 
-  // Combine and sort by score descending
+  // Combine and sort by score descending for this specific difficulty
   const combined = [...history, newRecord];
   combined.sort((a, b) => b.score - a.score);
 
-  // Keep top 50 records
+  // Keep top 50 records for this difficulty
   const trimmed = combined.slice(0, 50);
 
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}${diff}`, JSON.stringify(trimmed));
   } catch (e) {
-    console.warn('Failed to save play history', e);
+    console.warn(`Failed to save play history for difficulty ${diff}`, e);
   }
 
-  // Determine current record rank (1-based)
+  // Determine current record rank (1-based) within this difficulty
   const rank = combined.findIndex((r) => r.id === newRecord.id) + 1;
   const totalPlays = combined.length;
 
-  const evaluation = evaluateRank(rank, totalPlays, newRecord.score, newRecord.distance);
+  const evaluation = evaluateRank(rank, totalPlays, newRecord.score, newRecord.distance, diff);
 
   return {
     updatedHistory: trimmed,
@@ -62,10 +73,10 @@ export function evaluateRank(
   rank: number,
   totalPlays: number,
   score: number,
-  distance: number
+  distance: number,
+  difficulty: DifficultyLevel
 ): RankEvaluation {
-  // "순위 높으면 칭찬하고 순위 낮으면 놀려줘"
-  // Top 1, 2, 3 or top 25% gets high praise
+  const diffName = difficulty === 1 ? '쉬움(1단계)' : difficulty === 2 ? '보통(2단계)' : '어려움(3단계)';
   const isTopThree = rank <= 3;
   const isTopPercentile = totalPlays <= 3 ? rank === 1 : rank / totalPlays <= 0.35;
   const isHighRank = isTopThree || isTopPercentile;
@@ -76,11 +87,11 @@ export function evaluateRank(
       totalPlays,
       isHighRank: true,
       emoji: '👑',
-      title: '전설의 골드 러너 등극!',
+      title: `${diffName} 역대 1위 신기록 달성!`,
       message:
         totalPlays === 1
-          ? '첫 판부터 환상적인 주행! 명실상부 압도적인 1위 기록입니다! 멋진 반응속도네요!'
-          : `역대 최고 1위 기록을 갈아치웠습니다! 당신의 순발력과 완벽한 마우스 컨트롤에 감탄이 절로 나옵니다. 챔피언!`,
+          ? `첫 도전 만에 ${diffName} 모드 1위를 차지했습니다! 마우스 핸들링 감각이 정말 천재적이시네요!`
+          : `${diffName} 모드의 모든 기존 기록을 제치고 새로운 챔피언에 올랐습니다! 경이로운 순발력과 완벽한 회피 능력입니다!`,
     };
   }
 
@@ -90,8 +101,8 @@ export function evaluateRank(
       totalPlays,
       isHighRank: true,
       emoji: '🥈',
-      title: '역대 2위! 엄청난 질주!',
-      message: '1위 왕좌가 바로 코앞에 있습니다! 방금 주행 정말 아슬아슬하고 예술적이었어요!',
+      title: `${diffName} 역대 2위 은메달!`,
+      message: `와! ${diffName} 모드에서 정상을 위협하는 최고 수준의 질주였습니다. 1위와의 격차가 얼마 남지 않았어요!`,
     };
   }
 
@@ -101,8 +112,8 @@ export function evaluateRank(
       totalPlays,
       isHighRank: true,
       emoji: '🥉',
-      title: '역대 3위 포디움 입성!',
-      message: '탑 3에 이름을 올렸습니다! 손끝 감각이 완전히 살아있네요. 1위까지 조금만 더 달려보세요!',
+      title: `${diffName} 역대 3위 포디움 진입!`,
+      message: `탑 3 명예의 전당에 안착했습니다! ${diffName} 코스의 고비를 예술적인 점프와 코너링으로 넘기셨군요!`,
     };
   }
 
@@ -112,21 +123,23 @@ export function evaluateRank(
       totalPlays,
       isHighRank: true,
       emoji: '✨',
-      title: `상위권 랭크 진입! (${rank}위 / 총 ${totalPlays}회)`,
-      message: '평균을 훌쩍 뛰어넘는 뛰어난 질주였습니다! 마우스 핸들링이 정말 날렵하시네요.',
+      title: `${diffName} 상위권 랭크 진입! (${rank}위 / 총 ${totalPlays}회)`,
+      message: `${diffName} 모드 상위권에 당당히 이름을 올렸습니다! 손놀림이 아주 안정적이고 훌륭합니다.`,
     };
   }
 
-  // Low rank / Playful teasing
-  // Different playful teasing quotes based on how low or short the run was
+  // Low rank / Playful teasing per difficulty
   if (distance < 50) {
     return {
       rank,
       totalPlays,
       isHighRank: false,
       emoji: '🐢',
-      title: `출발하자마자 쿵?! (${rank}위 / 총 ${totalPlays}회)`,
-      message: '어라? 혹시 마우스에 버터 발라두셨나요? 50m도 못 가고 넘어지다니 거북이도 웃겠어요 ㅋㅋㅋ',
+      title: `출발하자마자 쾅?! (${diffName} ${rank}위 / 총 ${totalPlays}회)`,
+      message:
+        difficulty === 1
+          ? '가장 쉬운 1단계인데 50m도 못 가고 넘어지셨어요! 마우스에 버터 발라두신 줄 알았습니다 ㅋㅋㅋ'
+          : `${diffName} 장애물 앞에서 시원하게 몸개그 작렬! 거북이도 이것보단 멀리 가겠어요 ㅎㅎ`,
     };
   }
 
@@ -136,16 +149,16 @@ export function evaluateRank(
       totalPlays,
       isHighRank: false,
       emoji: '📉',
-      title: `꼴찌 달성 축하(?)합니다! (${rank}위 / 총 ${totalPlays}회)`,
-      message: '와우, 밑바닥을 든든하게 받쳐주는 기둥이 되어주셨군요! 다음 판엔 눈 뜨고 마우스 잡아보실래요? ㅎㅎ',
+      title: `${diffName} 꼴찌 당첨 축하드립니다! (${rank}위 / 총 ${totalPlays}회)`,
+      message: `다른 플레이어들의 자존감을 살려주는 따뜻한 꼴찌 기둥이 되어주셨네요! 다음 판엔 눈 뜨고 마우스 잡아보실래요?`,
     };
   }
 
   const teasingQuotes = [
-    '이 정도 실력으로는 동네 고양이도 못 따라잡겠는걸요? 마우스 연습 좀 더 하고 오세요~',
-    '화면만 멍하니 보다가 장애물에 냅다 부딪히신 거 다 봤습니다! 손가락 스트레칭 필수!',
-    '장애물이 무서워서 도망치신 줄 알았어요! 점프 클릭 타이밍이 살짝 졸리셨던 것 같은데요?',
-    '순위표 아래쪽에 조용히 안착하셨네요... 다음엔 조금만 더 집중해서 기록 갱신해봐요!',
+    `${diffName} 코스에서 장애물이 무서워서 도망치신 줄 알았어요! 점프 클릭 타이밍이 살짝 졸리셨나요?`,
+    `동네 산책 나온 강아지도 이것보단 점프 잘하겠어요! 마우스 엑스좌표 조향 연습 좀 더 해보세요~`,
+    `화면 멍하니 구경하시다가 허망하게 부딪히셨네요! 손가락 스트레칭하고 다시 도전해봐요!`,
+    `${diffName} 순위표 저 밑바닥에 조용히 안착하셨습니다... 기록 갱신을 위해 분발하세요!`,
   ];
 
   const pickedTease = teasingQuotes[Math.floor(Math.random() * teasingQuotes.length)];
@@ -155,7 +168,7 @@ export function evaluateRank(
     totalPlays,
     isHighRank: false,
     emoji: '😜',
-    title: `아쉬운 하위권 기록 (${rank}위 / 총 ${totalPlays}회)`,
+    title: `${diffName} 아쉬운 하위권 (${rank}위 / 총 ${totalPlays}회)`,
     message: pickedTease,
   };
 }
