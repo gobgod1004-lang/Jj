@@ -1,0 +1,7 @@
+{
+  "name": "골드 런 (Gold Run)",
+  "description": "마우스 좌표에 따라 부드럽게 조작하고 클릭으로 점프하는 3단계 난이도의 3D 러닝 게임",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
