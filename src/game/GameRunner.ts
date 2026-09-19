@@ -116,8 +116,8 @@ export class GameRunner {
       const normX = (clientX - rect.left) / rect.width; // 0 (left) to 1 (right)
       const clampedNormX = Math.max(0.05, Math.min(0.95, normX));
 
-      // Continuous smooth target X based on mouse coordinate
-      this.targetPlayerX = (clampedNormX - 0.5) * this.TRACK_WIDTH;
+      // Continuous smooth target X based on mouse coordinate (inverted for camera perspective looking down +Z)
+      this.targetPlayerX = (0.5 - clampedNormX) * this.TRACK_WIDTH;
     };
 
     window.addEventListener('mousemove', handlePointerMove);
