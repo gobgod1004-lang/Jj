@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GameRunner } from './game/GameRunner';
-import { DifficultyLevel, GameState, GameStats, HighScoreRecord } from './types';
+import { DifficultyLevel, GameState, GameStats, HighScoreRecord, PlayHistoryRecord, RankEvaluation } from './types';
 import { HUD } from './components/HUD';
 import { StartModal } from './components/StartModal';
 import { GameOverModal } from './components/GameOverModal';
 import { PauseModal } from './components/PauseModal';
 import { sound } from './utils/audio';
+import { getPlayHistory, savePlayRecord } from './utils/history';
 
 const defaultStats: GameStats = {
   score: 0,
@@ -27,6 +28,10 @@ export default function App() {
   const [speedUpNotice, setSpeedUpNotice] = useState<string | null>(null);
   const [isNewRecord, setIsNewRecord] = useState<boolean>(false);
   const [showHint, setShowHint] = useState<boolean>(true);
+
+  // Play History & Evaluation
+  const [history, setHistory] = useState<PlayHistoryRecord[]>(() => getPlayHistory());
+  const [latestEvaluation, setLatestEvaluation] = useState<RankEvaluation | null>(null);
 
   // Load high score from localStorage
   const getHighScore = useCallback((level: DifficultyLevel): HighScoreRecord => {
@@ -60,6 +65,18 @@ export default function App() {
       onGameOver: (finalStats) => {
         setStats(finalStats);
         setGameState('gameover');
+
+        // Save play record to history and calculate rank evaluation
+        const { updatedHistory, evaluation } = savePlayRecord({
+          score: finalStats.score,
+          distance: finalStats.distance,
+          gold: finalStats.gold,
+          speed: finalStats.speed,
+          difficulty,
+        });
+
+        setHistory(updatedHistory);
+        setLatestEvaluation(evaluation);
 
         const currentHigh = getHighScore(difficulty);
         if (finalStats.score > currentHigh.score) {
@@ -109,61 +126,65 @@ export default function App() {
     setHighScore(getHighScore(difficulty));
   }, [difficulty, getHighScore]);
 
-  // Start game handler
-  const handleStartGame = () => {
-    setGameState('playing');
-    setIsNewRecord(false);
-    setSpeedUpNotice(null);
-    setShowHint(true);
-    runnerRef.current?.start(difficulty);
-
-    // Auto fade hint after 6 seconds
-    setTimeout(() => {
-      setShowHint(false);
-    }, 6000);
-  };
-
-  // Restart game handler
-  const handleRestart = () => {
-    handleStartGame();
-  };
-
-  // Pause / Resume toggle
-  const handleTogglePause = () => {
+  // Hide initial hint after 4 seconds of playing
+  useEffect(() => {
     if (gameState === 'playing') {
-      runnerRef.current?.pause();
+      const timer = setTimeout(() => setShowHint(false), 4000);
+      return () => clearTimeout(timer);
+    }
+    setShowHint(true);
+  }, [gameState]);
+
+  // Handlers
+  const handleStartGame = () => {
+    if (!runnerRef.current) return;
+    setGameState('playing');
+    runnerRef.current.start(difficulty);
+  };
+
+  const handleRestart = () => {
+    if (!runnerRef.current) return;
+    setGameState('playing');
+    runnerRef.current.start(difficulty);
+  };
+
+  const handleOpenMenu = () => {
+    setGameState('menu');
+  };
+
+  const handleTogglePause = () => {
+    if (!runnerRef.current) return;
+    if (gameState === 'playing') {
+      runnerRef.current.pause();
       setGameState('paused');
     } else if (gameState === 'paused') {
-      runnerRef.current?.resume();
+      runnerRef.current.resume();
       setGameState('playing');
     }
   };
 
-  // Sound mute toggle
   const handleToggleMute = () => {
-    const nextMuted = sound.toggleMute();
-    setIsMuted(nextMuted);
+    const muted = sound.toggleMute();
+    setIsMuted(muted);
   };
 
-  // Return to menu
-  const handleOpenMenu = () => {
-    runnerRef.current?.pause();
-    setGameState('menu');
+  const handleSelectDifficulty = (level: DifficultyLevel) => {
+    setDifficulty(level);
   };
 
   return (
-    <main
-      id="game-root-container"
-      className="relative w-screen h-screen overflow-hidden bg-slate-950 select-none cursor-crosshair font-sans"
+    <div
+      id="game-viewport-container"
+      className="relative w-screen h-screen overflow-hidden bg-sky-200 select-none"
     >
       {/* 3D WebGL Canvas Container */}
       <div
-        id="game-canvas-container"
+        id="threejs-canvas-host"
         ref={containerRef}
-        className="absolute inset-0 w-full h-full"
+        className="absolute inset-0 w-full h-full cursor-pointer touch-none"
       />
 
-      {/* In-Game Heads-Up Display */}
+      {/* In-Game HUD overlay */}
       {gameState === 'playing' && (
         <HUD
           stats={stats}
@@ -176,37 +197,23 @@ export default function App() {
         />
       )}
 
-      {/* Floating Control Tip during early run */}
+      {/* Floating Tutorial Hint (During initial run) */}
       {gameState === 'playing' && showHint && (
-        <aside
-          id="control-hint-banner"
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none z-10 transition-opacity duration-700 animate-pulse"
-        >
-          <div className="px-4 py-2 rounded-full bg-slate-900/85 border border-slate-700/80 backdrop-blur-md text-slate-200 text-xs flex items-center gap-3 shadow-lg">
-            <span>🖱️ 마우스 좌우: <strong>부드러운 조향</strong></span>
-            <span className="w-1 h-1 rounded-full bg-slate-500"></span>
-            <span>👆 화면 아무데나 클릭: <strong>점프</strong></span>
+        <div className="absolute bottom-6 inset-x-0 flex justify-center pointer-events-none animate-pulse">
+          <div className="bg-white/90 text-slate-800 border border-amber-300 font-bold px-4 py-2 rounded-full text-xs sm:text-sm shadow-lg backdrop-blur-sm flex items-center gap-2">
+            <span>🖱️ 마우스 좌우로 조향하고 화면을 클릭해 점프하세요!</span>
           </div>
-        </aside>
+        </div>
       )}
 
-      {/* Start / Difficulty Selection Modal */}
+      {/* Start / Menu Modal */}
       {gameState === 'menu' && (
         <StartModal
           difficulty={difficulty}
-          onSelectDifficulty={(lvl) => setDifficulty(lvl)}
+          onSelectDifficulty={handleSelectDifficulty}
           onStartGame={handleStartGame}
           highScore={highScore}
-        />
-      )}
-
-      {/* Paused Modal */}
-      {gameState === 'paused' && (
-        <PauseModal
-          difficulty={difficulty}
-          onResume={handleTogglePause}
-          onRestart={handleRestart}
-          onOpenMenu={handleOpenMenu}
+          history={history}
         />
       )}
 
@@ -217,10 +224,22 @@ export default function App() {
           difficulty={difficulty}
           highScore={highScore}
           isNewRecord={isNewRecord}
+          evaluation={latestEvaluation}
+          history={history}
           onRestart={handleRestart}
           onOpenMenu={handleOpenMenu}
         />
       )}
-    </main>
+
+      {/* Pause Modal */}
+      {gameState === 'paused' && (
+        <PauseModal
+          difficulty={difficulty}
+          onResume={handleTogglePause}
+          onRestart={handleRestart}
+          onOpenMenu={handleOpenMenu}
+        />
+      )}
+    </div>
   );
 }

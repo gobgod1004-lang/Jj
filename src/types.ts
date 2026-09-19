@@ -31,3 +31,24 @@ export interface HighScoreRecord {
   distance: number;
   gold: number;
 }
+
+export interface PlayHistoryRecord {
+  id: string;
+  date: string; // formatted timestamp
+  timestamp: number;
+  score: number;
+  distance: number;
+  gold: number;
+  speed: number;
+  difficulty: DifficultyLevel;
+  rank?: number;
+}
+
+export interface RankEvaluation {
+  rank: number;
+  totalPlays: number;
+  isHighRank: boolean;
+  title: string;
+  message: string;
+  emoji: string;
+}

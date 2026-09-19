@@ -60,10 +60,10 @@ export class GameRunner {
     this.container = container;
     this.callbacks = callbacks;
 
-    // 1. Scene & Camera
+    // 1. Scene & Camera (Bright sunny sky atmosphere)
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0f172a); // Deep modern slate sky
-    this.scene.fog = new THREE.Fog(0x0f172a, 45, 140);
+    this.scene.background = new THREE.Color(0x7dd3fc); // Cheerful vibrant sky blue
+    this.scene.fog = new THREE.Fog(0xbae6fd, 50, 160); // Soft distant atmospheric haze
 
     const width = container.clientWidth || window.innerWidth;
     const height = container.clientHeight || window.innerHeight;
@@ -77,11 +77,14 @@ export class GameRunner {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(this.renderer.domElement);
 
-    // 3. Lighting
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+    // 3. Lighting (Warm sunny golden daylight)
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 1.25);
     this.scene.add(this.ambientLight);
 
-    this.dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
+    const hemiLight = new THREE.HemisphereLight(0x7dd3fc, 0x4ade80, 0.6);
+    this.scene.add(hemiLight);
+
+    this.dirLight = new THREE.DirectionalLight(0xfffbeb, 1.6);
     this.dirLight.position.set(10, 20, -10);
     this.dirLight.castShadow = true;
     this.dirLight.shadow.mapSize.width = 1024;
